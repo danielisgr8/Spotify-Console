@@ -11,8 +11,11 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <curl/curl.h>
+#include <ncurses.h>
 
+#include "server.h"
 #include "utils.h"
+#include "cJSON.h"
 
 #define BUFSIZE 1024
 #define CLIENT_ID "fb87a8dcc6504073a292ae657458c3ea"
@@ -166,7 +169,7 @@ CURL * init_curl() {
 	return curl_easy_init();
 }
 
-size_t post_spotify_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
+size_t spotify_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
 	struct Memory *mem = (struct Memory *)userdata;
 	size_t bytec = size * nmemb;
 	memcpy(mem->buf, ptr, bytec);
@@ -182,8 +185,6 @@ void post_spotify(CURL *curl, const char *code, char *buf) {
 		resData.buf = response;
 		resData.size = 0;
 		char body[512];
-		char *results[1];
-		results[0] = buf;
 
 		curl_easy_setopt(curl, CURLOPT_URL, "https://accounts.spotify.com/api/token");
 		sprintf(body, "grant_type=authorization_code&code=%s&redirect_uri=http%%3A%%2F%%2Flocalhost%%2Fcallback", code);
@@ -191,7 +192,7 @@ void post_spotify(CURL *curl, const char *code, char *buf) {
 		curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 		curl_easy_setopt(curl, CURLOPT_USERNAME, CLIENT_ID);
 		curl_easy_setopt(curl, CURLOPT_PASSWORD, CLIENT_SECRET);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, post_spotify_callback);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, spotify_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resData);
 
 		res = curl_easy_perform(curl);
@@ -201,8 +202,79 @@ void post_spotify(CURL *curl, const char *code, char *buf) {
 			exit(1);
 		}
 
-		exec("\"access_token\": \\?\"\\([^\"]*\\)", response, 1, results);
+		cJSON *json = cJSON_Parse(response);
+		cJSON *tokenJSON = cJSON_GetObjectItemCaseSensitive(json, "access_token");
+		strcpy(buf, tokenJSON->valuestring);
 	} else {
 		error("curl failed initialization");
 	}
+}
+
+void getSongData(CURL *curl, const char *token, char *buf) {
+	CURLcode res;
+	struct Memory resData;
+	resData.buf = buf;
+	resData.size = 0;
+
+	char header[1024];
+	sprintf(header, "Authorization: Bearer %s", token);
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append(headers, header);
+
+	curl_easy_reset(curl);
+	curl_easy_setopt(curl, CURLOPT_URL, "https://api.spotify.com/v1/me/player/currently-playing");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, spotify_callback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resData);
+
+	res = curl_easy_perform(curl);
+	buf[resData.size] = '\0';
+	if(res != CURLE_OK) {
+		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+		exit(1);
+	}
+
+	curl_slist_free_all(headers);
+
+	long responseCode;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+	if(responseCode != 200) {
+		error("Access token expired");
+	}
+}
+
+int changePlayState(CURL *curl, const char *token, int state) {
+	CURLcode res;
+	char *url;
+	if(state) { // currently playing, change to pause
+		url = "https://api.spotify.com/v1/me/player/pause";
+	} else { // currently pause, change to play
+		url = "https://api.spotify.com/v1/me/player/play";
+	}
+
+	char header[1024];
+	sprintf(header, "Authorization: Bearer %s", token);
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append(headers, header);
+
+	curl_easy_reset(curl);
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl, CURLOPT_NOBODY, 1); // don't output response (error response is to be expected)
+
+	res = curl_easy_perform(curl);
+	if(res != CURLE_OK) {
+		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+		exit(1);
+	}
+
+	curl_slist_free_all(headers);
+
+	long responseCode;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+	if(responseCode != 204) {
+		return changePlayState(curl, token, state - 1); // assumed wrong playback state, try again with other state
+	}
+	return state ? 0 : 1;
 }
