@@ -44,7 +44,7 @@ void readline(int socket, char *buffer) {
 
 void init_server(char *code) {
 	int listenfd,
-		port = 80, // must put port in Spotify developer console, so can't allow user-decided port
+		port = 7777, // must put port in Spotify developer console, so can't allow user-decided port
 		clientfd,
 		optval = 1;
 	socklen_t clientlen;
