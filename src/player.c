@@ -66,11 +66,11 @@ void display_player(CURL *curl, const char *access_token) {
 				break;
 			}
 		}
-		if(cycles % 100 == 0) {
+		if(cycles % 10 == 0) {
 			updatePlayer(curl, access_token);
 			cycles = 0;
 		}
-		usleep(10000);
+		usleep(100000);
 		cycles += 1;
 	}
 }

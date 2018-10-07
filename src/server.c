@@ -44,7 +44,7 @@ void readline(int socket, char *buffer) {
 
 void init_server(char *code) {
 	int listenfd,
-		port = 7777, // must put port in Spotify developer console, so can't allow user-decided port
+		port = 80, // must put port in Spotify developer console, so can't allow user-decided port
 		clientfd,
 		optval = 1;
 	socklen_t clientlen;
@@ -172,7 +172,7 @@ CURL * init_curl() {
 size_t spotify_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
 	struct Memory *mem = (struct Memory *)userdata;
 	size_t bytec = size * nmemb;
-	memcpy(mem->buf, ptr, bytec);
+	memcpy(mem->buf + mem->size, ptr, bytec);
 	mem->size += bytec;
 	return bytec;
 }
@@ -216,10 +216,11 @@ void getSongData(CURL *curl, const char *token, char *buf) {
 	resData.buf = buf;
 	resData.size = 0;
 
-	char header[1024];
-	sprintf(header, "Authorization: Bearer %s", token);
+	char authHeader[1024];
+	sprintf(authHeader, "Authorization: Bearer %s", token);
 	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, header);
+	headers = curl_slist_append(headers, authHeader);
+	headers = curl_slist_append(headers, "Content-Length: 0");
 
 	curl_easy_reset(curl);
 	curl_easy_setopt(curl, CURLOPT_URL, "https://api.spotify.com/v1/me/player/currently-playing");
@@ -252,10 +253,11 @@ int changePlayState(CURL *curl, const char *token, int state) {
 		url = "https://api.spotify.com/v1/me/player/play";
 	}
 
-	char header[1024];
-	sprintf(header, "Authorization: Bearer %s", token);
+	char authHeader[1024];
+	sprintf(authHeader, "Authorization: Bearer %s", token);
 	struct curl_slist *headers = NULL;
-	headers = curl_slist_append(headers, header);
+	headers = curl_slist_append(headers, authHeader);
+	headers = curl_slist_append(headers, "Content-Length: 0");
 
 	curl_easy_reset(curl);
 	curl_easy_setopt(curl, CURLOPT_URL, url);
