@@ -39,7 +39,7 @@ void init_player() {
 }
 
 void display_init() {
-	mvaddstr(0, 0, "Authorize your Spotify account at http://localhost:7777");
+	mvaddstr(0, 0, "Authorize your Spotify account at http://localhost");
 	refresh();
 }
 

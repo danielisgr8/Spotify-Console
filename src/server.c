@@ -19,7 +19,13 @@
 
 #define BUFSIZE 1024
 #define CLIENT_ID "fb87a8dcc6504073a292ae657458c3ea"
-#define CLIENT_SECRET "90ee5523614c46bca967600a038e7286"
+
+void readClientSecret(char *buf) {
+	FILE *csFile = fopen("CLIENT_SECRET", "r");
+	fgets(buf, 33, csFile);
+}
+
+char CLIENT_SECRET[33];
 
 struct Memory {
 	char *buf;
@@ -43,6 +49,8 @@ void readline(int socket, char *buffer) {
 }
 
 void init_server(char *code) {
+	readClientSecret(CLIENT_SECRET);
+	
 	int listenfd,
 		port = 80, // must put port in Spotify developer console, so can't allow user-decided port
 		clientfd,
