@@ -22,6 +22,9 @@
 
 void readClientSecret(char *buf) {
 	FILE *csFile = fopen("CLIENT_SECRET", "r");
+	if(!csFile) {
+		error("No CLIENT_SECRET file found");
+	}
 	fgets(buf, 33, csFile);
 }
 
