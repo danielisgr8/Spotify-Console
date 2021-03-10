@@ -250,7 +250,9 @@ void getSongData(CURL *curl, const char *token, char *buf) {
 
 	long responseCode;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
-	if(responseCode != 200) {
+	if(responseCode == 204) {
+		buf[0] = '\0';
+	} else if(responseCode != 200) {
 		error("Access token expired");
 	}
 }

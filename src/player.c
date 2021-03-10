@@ -123,6 +123,11 @@ void updatePlayer(CURL *curl, const char *access_token) {
 }
 
 void updateSong(char *str) {
+	if(str[0] == '\0') {
+		update_player_string(PROP_TITLE_ARTIST, "No song playing");
+		return;
+	}
+
 	char songData[SONGDATA_SIZE][SONGDATASTRING_SIZE];
 	char songString[256];
 	int written, offset;
@@ -142,7 +147,12 @@ void updateSong(char *str) {
 
 void updateTime(char *str) {
 	int prog, dur;
-	parseTimes(str, &prog, &dur);
+	if(str[0] == '\0') {
+		prog = 0;
+		dur = 1;
+	} else {
+		parseTimes(str, &prog, &dur);
+	}
 	float percent = (float) prog / dur;
 	float numChars = percent * (dimX - 4);
 	update_player(PROP_TIME, (int) numChars);
